@@ -4,50 +4,56 @@ library(reshape2)
 library(dplyr)
 library(scales)
 library(psych)
+#library(tidyquant)
 
 rm(list = ls())
 
 load("wSet_z.Rda")
 
-chart.CumReturns(wSet.z[, c("pChOpen", "pChClose"),], 
-                 wealth.index = T, 
-                 legend.loc = "topleft",
-                 main = "S&P 500 price index cumulative returns")
+### Cumulative relative returns #####################################################
+png('cumRelRets.png')
 
 chart.CumReturns(wSet.z$relRets, 
                  wealth.index = F, 
                  geometric = F,
-                 main = "S&P 500 price index\nrelative returns (Open%-Close%)",
+                 main = "S&P 500 price index\nrelative returns (Open% - Close%)",
                  ylab = "Cumulative daily")
+dev.off()
 
-cov(wSet.z[, c("pChOpen", "pChClose", "relRets")], use = "pairwise")
-sqrt(diag(cov(wSet.z[, c("pChOpen", "pChClose", "relRets")], use = "pairwise"))) * sqrt(252) * 100
+### Covariance and correlations #####################################################
+covMat <- cov(wSet.z[, c("pChOpen", "pChClose", "relRets")], use = "pairwise")
+print(sqrt(diag(covMat)) * sqrt(252) * 100)
 
-cor(wSet.z[, c("pChOpen", "pChClose", "relRets")], use = "pairwise")
+corMat <- cor(wSet.z[, c("pChOpen", "pChClose", "relRets")], use = "pairwise")
+print(corMat)
 
-### Lag close and check correlation with Open ########################################
+### Lag close and check correlation with Open #######################################
 wSet.z$lagClose <- lag(wSet.z$pChClose, k = 1)
 cor(wSet.z[, c("pChOpen", "lagClose", "pChClose")], use = "pairwise")
 
+### Min/Max range ###################################################################
 ggplot(fortify(wSet.z), aes(x=Index)) +
   geom_linerange(aes(ymin = ifelse(Open > Close, Close, Open), 
                      ymax = ifelse(Open <= Close, Close, Open)))
 
+### Cumulative returns ###########################################################
 ggplot(fortify(wSet.z)) +
   geom_line(aes(x = Index, y = Open), colour = "grey") +
   geom_line(aes(x = Index, y= Close), colour = "black") +
   theme_bw() + ylab("") + xlab("") + 
-  labs(ylab = NULL,
-       xlab = NULL,
+  labs(y = NULL,
+       x = NULL,
        title = "S&P 500 - price index", 
        subtitle  = "grey = 0pen, black = Close",
-       caption = "https://www.github.com/mcastagnaa/whatever")
+       caption = "https://github.com/mcastagnaa/MidDayVal")
 
+ggsave("TSreturns.png", device = "png")
+
+### Distribution of intraday returns ################################################
 ggplot(fortify(wSet.z), aes(intraDay)) + 
   geom_histogram(binwidth = 0.001, colour = "black", fill = "white") + 
-  scale_x_continuous(labels = percent) + 
-  theme_bw() + xlab("Intraday range - Close vs. Open") + ylab("Observations") +
-  ggtitle("S&P 500 - intraday range", subtitle = "price index") +
+  scale_x_continuous(labels = percent) +
+  theme_bw() +
   stat_function( 
     fun = function(x, mean, sd, n, bw){ 
       dnorm(x = x, mean = mean, sd = sd) * n * bw
@@ -55,8 +61,46 @@ ggplot(fortify(wSet.z), aes(intraDay)) +
     args = c(mean = mean(wSet.z$intraDay), 
              sd = sd(wSet.z$intraDay), 
              n = length(wSet.z$intraDay), bw = 0.001),
-    colour = "grey")
+    colour = "grey") + 
+  labs(y = "# of observations",
+       x = "Intraday range - Close vs. Open",
+       title = "S&P 500 price index- intraday range", 
+       subtitle  = "vs. normal distribution with same mean/sd",
+       caption = "https://github.com/mcastagnaa/MidDayVal")
 
-describe(wSet.z$intraDay*100, IQR = T)
-  
+ggsave("Distribution.png", device = "png")
+
+### Descriptive stats #############################################################
+print(describe(wSet.z$intraDay*100, IQR = T))
 densityBy(wSet.z$intraDay*100)
+
+### Weekly stats #####################################################################
+wSet.z.w <- to.weekly(wSet.z[, c("Open", "Close")], name = NULL, OHLC = F)
+wSet.z.w$pChOpen <- wSet.z.w$Open/lag(wSet.z.w$Open) - 1
+wSet.z.w$pChClose <- wSet.z.w$Close/lag(wSet.z.w$Close) - 1
+wSet.z.w$relRets <- wSet.z.w$pChOpen - wSet.z.w$pChClose
+
+chart.CumReturns(wSet.z.w$relRets, 
+                 wealth.index = F, 
+                 geometric = F,
+                 main = "S&P 500 price index\nrelative returns (Open% - Close%)",
+                 ylab = "Cumulative weekly")
+
+covMatw <- cov(wSet.z.w[, c("pChOpen", "pChClose", "relRets")], use = "pairwise")
+print(sqrt(diag(covMatw)) * sqrt(52) * 100)
+
+
+### Monthly stats ###################################################################
+wSet.z.m <- to.monthly(wSet.z[, c("Open", "Close")], name = NULL, OHLC = F)
+wSet.z.m$pChOpen <- wSet.z.m$Open/lag(wSet.z.m$Open) - 1
+wSet.z.m$pChClose <- wSet.z.m$Close/lag(wSet.z.m$Close) - 1
+wSet.z.m$relRets <- wSet.z.m$pChOpen - wSet.z.m$pChClose
+
+chart.CumReturns(wSet.z.m$relRets, 
+                 wealth.index = F, 
+                 geometric = F,
+                 main = "S&P 500 price index\nrelative returns (Open% - Close%)",
+                 ylab = "Cumulative monthly")
+
+covMatm <- cov(wSet.z.m[, c("pChOpen", "pChClose", "relRets")], use = "pairwise")
+print(sqrt(diag(covMatw)) * sqrt(12) * 100)
