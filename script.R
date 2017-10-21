@@ -4,21 +4,31 @@ library(reshape2)
 library(dplyr)
 library(scales)
 library(psych)
-#library(tidyquant)
 
 rm(list = ls())
 
 load("wSet_z.Rda")
 
 ### Cumulative relative returns #####################################################
-png('cumRelRets.png')
-
 chart.CumReturns(wSet.z$relRets, 
                  wealth.index = F, 
                  geometric = F,
                  main = "S&P 500 price index\nrelative returns (Open% - Close%)",
                  ylab = "Cumulative daily")
-dev.off()
+
+### Cumulative relative returns (ggplot2) ###########################################
+wSet.z$cumRelRets <- c(NA, cumsum(wSet.z$relRets[-1]))
+
+ggplot(fortify(wSet.z[-1,])) +
+  geom_line(aes(x = Index, y = cumRelRets), colour = "black") +
+  theme_bw() +
+  labs(y = "Cumulative daily",
+       x = NULL,
+       title = "S&P 500 price index 'relative returns'", 
+       subtitle  = "Open % - Close%",
+       caption = "https://github.com/mcastagnaa/MidDayVal")
+
+ggsave("cumRelRets.png", device = "png")
 
 ### Covariance and correlations #####################################################
 covMat <- cov(wSet.z[, c("pChOpen", "pChClose", "relRets")], use = "pairwise")
@@ -36,11 +46,11 @@ ggplot(fortify(wSet.z), aes(x=Index)) +
   geom_linerange(aes(ymin = ifelse(Open > Close, Close, Open), 
                      ymax = ifelse(Open <= Close, Close, Open)))
 
-### Cumulative returns ###########################################################
+### Cumulative returns ##############################################################
 ggplot(fortify(wSet.z)) +
   geom_line(aes(x = Index, y = Open), colour = "grey") +
   geom_line(aes(x = Index, y= Close), colour = "black") +
-  theme_bw() + ylab("") + xlab("") + 
+  theme_bw() + 
   labs(y = NULL,
        x = NULL,
        title = "S&P 500 - price index", 
@@ -88,7 +98,6 @@ chart.CumReturns(wSet.z.w$relRets,
 
 covMatw <- cov(wSet.z.w[, c("pChOpen", "pChClose", "relRets")], use = "pairwise")
 print(sqrt(diag(covMatw)) * sqrt(52) * 100)
-
 
 ### Monthly stats ###################################################################
 wSet.z.m <- to.monthly(wSet.z[, c("Open", "Close")], name = NULL, OHLC = F)
