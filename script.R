@@ -19,9 +19,15 @@ chart.CumReturns(wSet.z$relRets,
 ### Cumulative relative returns (ggplot2) ###########################################
 wSet.z$cumRelRets <- c(NA, cumsum(wSet.z$relRets[-1]))
 
+hline.m <- quantile(wSet.z$cumRelRets, 0.125, na.rm = T)
+hline.p <- quantile(wSet.z$cumRelRets, 0.875, na.rm = T)
+
 ggplot(fortify(wSet.z[-1,])) +
-  geom_line(aes(x = Index, y = cumRelRets), colour = "black") +
+  geom_line(aes(x = Index, y = cumRelRets), colour = "black", size = 0.1) +
+  geom_hline(yintercept = hline.p, colour = "grey", linetype = 2) +
+  geom_hline(yintercept = hline.m, colour = "grey", linetype = 2) +
   theme_bw() +
+  scale_y_continuous(labels = percent) +
   labs(y = "Cumulative daily",
        x = NULL,
        title = "S&P 500 price index 'relative returns'", 
